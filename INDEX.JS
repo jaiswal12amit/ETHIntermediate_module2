@@ -7,6 +7,8 @@ export default function HomePage() {
   const [account, setAccount] = useState(undefined);
   const [atm, setATM] = useState(undefined);
   const [balance, setBalance] = useState(undefined);
+  const [billerAddress, setBillerAddress] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState(null);
 
   const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const atmABI = atm_abi.abi;
@@ -40,7 +42,6 @@ export default function HomePage() {
     const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
     handleAccount(accounts);
 
-    // once wallet is set we can get a reference to our deployed contract
     getATMContract();
   };
 
@@ -62,7 +63,7 @@ export default function HomePage() {
     if (atm) {
       let tx = await atm.deposit(amount);
       await tx.wait();
-      getBalance();
+      getBalance(); // Update balance after deposit
     }
   };
 
@@ -70,7 +71,7 @@ export default function HomePage() {
     if (atm) {
       let tx = await atm.withdraw(amount);
       await tx.wait();
-      getBalance();
+      getBalance(); // Update balance after withdrawal
     }
   };
 
@@ -92,16 +93,60 @@ export default function HomePage() {
     }
   };
 
-  const initUser = () => {
-    // Check to see if user has Metamask
-    if (!ethWallet) {
-      return <p>Please install Metamask in order to use this ATM.</p>;
+  const sendPayment = async (amount) => {
+    if (!ethers.utils.isAddress(billerAddress)) {
+      alert("Invalid Ethereum address");
+      return;
     }
 
-    // Check to see if user is connected. If not, connect to their account
+    if (amount <= 0) {
+      alert("Enter a valid amount");
+      return;
+    }
+
+    const provider = new ethers.providers.Web3Provider(ethWallet);
+    const signer = provider.getSigner();
+
+    try {
+      const tx = await signer.sendTransaction({
+        to: billerAddress,
+        value: ethers.utils.parseEther(amount.toString()), // convert amount to wei
+      });
+      await tx.wait(); // wait for transaction confirmation
+      setPaymentStatus("Payment successful");
+
+      // Re-fetch the balance after payment
+      const newBalance = await signer.getBalance(); // get balance in wei
+      setBalance(ethers.utils.formatEther(newBalance)); // convert balance from wei to ether
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      setPaymentStatus("Payment failed");
+    }
+  };
+
+  const handleBillerAddressChange = (e) => {
+    setBillerAddress(e.target.value);
+  };
+
+  const askAmountAndPayBill = async () => {
+    const amount = prompt("Enter the amount to pay:");
+    if (amount !== null && !isNaN(amount) && amount > 0) {
+      await sendPayment(parseFloat(amount));
+    } else {
+      alert("Please enter a valid amount.");
+    }
+  };
+
+  const initUser = () => {
+    if (!ethWallet) {
+      return <p>Please install MetaMask in order to use this ATM.</p>;
+    }
+
     if (!account) {
       return (
-        <button onClick={connectAccount}>Please connect your Metamask wallet</button>
+        <button className="btn-primary" onClick={connectAccount}>
+          Connect MetaMask Wallet
+        </button>
       );
     }
 
@@ -110,15 +155,35 @@ export default function HomePage() {
     }
 
     return (
-      <div>
-        <p>Your Account: {account}</p>
-        <p>Your Balance: {balance}</p>
-        <button onClick={() => deposit(1)}>Deposit 1 ETH</button>
-        <button onClick={() => withdraw(1)}>Withdraw 1 ETH</button>
-        <button onClick={() => deposit(10)}>Deposit 10 ETH</button>
-        <button onClick={() => withdraw(10)}>Withdraw 10 ETH</button>
-        <button onClick={askAmountAndDeposit}>Deposit Custom Amount</button>
-        <button onClick={askAmountAndWithdraw}>Withdraw Custom Amount</button>
+      <div className="card">
+        <p><strong>Account:</strong> {account}</p>
+        <p><strong>Balance:</strong> {balance} ETH</p>
+        <div className="button-group">
+          <button className="btn-secondary" onClick={() => deposit(1)}>Deposit 1 ETH</button>
+          <button className="btn-secondary" onClick={() => withdraw(1)}>Withdraw 1 ETH</button>
+        </div>
+        <div className="button-group">
+          <button className="btn-secondary" onClick={() => deposit(10)}>Deposit 10 ETH</button>
+          <button className="btn-secondary" onClick={() => withdraw(10)}>Withdraw 10 ETH</button>
+        </div>
+        <div className="button-group">
+          <button className="btn-secondary" onClick={askAmountAndDeposit}>Deposit Custom Amount</button>
+          <button className="btn-secondary" onClick={askAmountAndWithdraw}>Withdraw Custom Amount</button>
+        </div>
+
+        <div className="payment-section">
+          <h3>Pay Your Bills</h3>
+          <input
+            type="text"
+            className="input"
+            placeholder="Enter biller address"
+            value={billerAddress}
+            onChange={handleBillerAddressChange}
+          />
+          <button className="btn-primary" onClick={askAmountAndPayBill}>Pay Bill</button>
+        </div>
+
+        {paymentStatus && <p className="status">{paymentStatus}</p>}
       </div>
     );
   };
@@ -136,29 +201,66 @@ export default function HomePage() {
       <style jsx>{`
         .container {
           text-align: center;
-          background-color: green;
-          color: white;
+          background-color: #f0f4f8;
+          color: #333;
           padding: 40px;
-          font-family: Arial, sans-serif;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        header {
-          margin-bottom: 20px;
+        header h1 {
+          font-size: 2.5rem;
+          color: #0070f3;
         }
-        button {
-          margin: 10px;
-          padding: 10px 20px;
-          border: none;
+        .card {
+          background: #fff;
+          padding: 30px;
+          margin: 20px auto;
+          border-radius: 8px;
+          max-width: 600px;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .button-group {
+          margin: 20px 0;
+        }
+        .btn-primary {
           background-color: #0070f3;
           color: white;
-          cursor: pointer;
+          padding: 10px 20px;
+          border: none;
           border-radius: 5px;
+          cursor: pointer;
           transition: background-color 0.3s ease;
+          margin: 10px;
         }
-        button:hover {
+        .btn-primary:hover {
           background-color: #005bb5;
         }
-        p {
-          font-size: 18px;
+        .btn-secondary {
+          background-color: #333;
+          color: white;
+          padding: 10px 20px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+          margin: 10px;
+        }
+        .btn-secondary:hover {
+          background-color: #555;
+        }
+        .input {
+          padding: 10px;
+          border: 2px solid #ddd;
+          border-radius: 5px;
+          width: 80%;
+          margin-bottom: 10px;
+        }
+        .payment-section {
+          margin: 30px 0;
+        }
+        .status {
+          color: green;
+          font-weight: bold;
+          margin-top: 20px;
         }
       `}</style>
     </main>
