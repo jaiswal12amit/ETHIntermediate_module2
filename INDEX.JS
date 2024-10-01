@@ -10,6 +10,13 @@ export default function HomePage() {
   const [billerAddress, setBillerAddress] = useState("");
   const [paymentStatus, setPaymentStatus] = useState(null);
 
+  const [depositAmount, setDepositAmount] = useState("");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [loanStatus, setLoanStatus] = useState(null);
+  const [fixedDepositPeriod, setFixedDepositPeriod] = useState("");
+  const [fixedDepositAmount, setFixedDepositAmount] = useState("");
+  const [fdStatus, setFdStatus] = useState(null);
+
   const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const atmABI = atm_abi.abi;
 
@@ -137,6 +144,42 @@ export default function HomePage() {
     }
   };
 
+  // Fixed Deposit Logic
+  const handleFixedDeposit = async () => {
+    if (!fixedDepositAmount || !fixedDepositPeriod) {
+      alert("Please enter a valid amount and period.");
+      return;
+    }
+
+    try {
+      const tx = await atm.fixedDeposit(fixedDepositAmount, fixedDepositPeriod);
+      await tx.wait();
+      setFdStatus("Fixed Deposit successful");
+      getBalance(); // Update balance after deposit
+    } catch (error) {
+      setFdStatus("Fixed Deposit failed");
+      console.error(error);
+    }
+  };
+
+  // Loan Logic
+  const handleLoan = async () => {
+    if (!loanAmount) {
+      alert("Please enter a valid loan amount.");
+      return;
+    }
+
+    try {
+      const tx = await atm.takeLoan(loanAmount);
+      await tx.wait();
+      setLoanStatus("Loan taken successfully");
+      getBalance(); // Update balance after taking the loan
+    } catch (error) {
+      setLoanStatus("Loan request failed");
+      console.error(error);
+    }
+  };
+
   const initUser = () => {
     if (!ethWallet) {
       return <p>Please install MetaMask in order to use this ATM.</p>;
@@ -184,6 +227,41 @@ export default function HomePage() {
         </div>
 
         {paymentStatus && <p className="status">{paymentStatus}</p>}
+
+        {/* Fixed Deposit Section */}
+        <div className="fixed-deposit-section">
+          <h3>Fixed Deposit</h3>
+          <input
+            type="number"
+            className="input"
+            placeholder="Deposit Amount"
+            value={fixedDepositAmount}
+            onChange={(e) => setFixedDepositAmount(e.target.value)}
+          />
+          <input
+            type="number"
+            className="input"
+            placeholder="Deposit Period (in days)"
+            value={fixedDepositPeriod}
+            onChange={(e) => setFixedDepositPeriod(e.target.value)}
+          />
+          <button className="btn-primary" onClick={handleFixedDeposit}>Make Fixed Deposit</button>
+        </div>
+        {fdStatus && <p className="status">{fdStatus}</p>}
+
+        {/* Loan Section */}
+        <div className="loan-section">
+          <h3>Take a Loan</h3>
+          <input
+            type="number"
+            className="input"
+            placeholder="Loan Amount"
+            value={loanAmount}
+            onChange={(e) => setLoanAmount(e.target.value)}
+          />
+          <button className="btn-primary" onClick={handleLoan}>Take Loan</button>
+        </div>
+        {loanStatus && <p className="status">{loanStatus}</p>}
       </div>
     );
   };
@@ -255,6 +333,9 @@ export default function HomePage() {
           margin-bottom: 10px;
         }
         .payment-section {
+          margin: 30px 0;
+        }
+        .fixed-deposit-section, .loan-section {
           margin: 30px 0;
         }
         .status {
