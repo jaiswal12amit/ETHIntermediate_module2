@@ -34,7 +34,7 @@ export default function HomePage() {
   const handleAccount = (account) => {
     if (account) {
       console.log("Account connected: ", account);
-      setAccount(account);
+      setAccount(account[0]);
     } else {
       console.log("No account found");
     }
@@ -62,13 +62,13 @@ export default function HomePage() {
 
   const getBalance = async () => {
     if (atm) {
-      setBalance((await atm.getBalance()).toNumber());
+      setBalance(ethers.utils.formatEther(await atm.getBalance())); // Convert balance to ETH
     }
   };
 
   const deposit = async (amount) => {
     if (atm) {
-      let tx = await atm.deposit(amount);
+      let tx = await atm.deposit(ethers.utils.parseEther(amount.toString())); // Convert amount to wei
       await tx.wait();
       getBalance(); // Update balance after deposit
     }
@@ -76,7 +76,7 @@ export default function HomePage() {
 
   const withdraw = async (amount) => {
     if (atm) {
-      let tx = await atm.withdraw(amount);
+      let tx = await atm.withdraw(ethers.utils.parseEther(amount.toString())); // Convert amount to wei
       await tx.wait();
       getBalance(); // Update balance after withdrawal
     }
@@ -100,6 +100,7 @@ export default function HomePage() {
     }
   };
 
+  // Updated Payment Logic
   const sendPayment = async (amount) => {
     if (!ethers.utils.isAddress(billerAddress)) {
       alert("Invalid Ethereum address");
@@ -144,25 +145,7 @@ export default function HomePage() {
     }
   };
 
-  // Fixed Deposit Logic
-  const handleFixedDeposit = async () => {
-    if (!fixedDepositAmount || !fixedDepositPeriod) {
-      alert("Please enter a valid amount and period.");
-      return;
-    }
-
-    try {
-      const tx = await atm.fixedDeposit(fixedDepositAmount, fixedDepositPeriod);
-      await tx.wait();
-      setFdStatus("Fixed Deposit successful");
-      getBalance(); // Update balance after deposit
-    } catch (error) {
-      setFdStatus("Fixed Deposit failed");
-      console.error(error);
-    }
-  };
-
-  // Loan Logic
+  // Updated Loan Logic
   const handleLoan = async () => {
     if (!loanAmount) {
       alert("Please enter a valid loan amount.");
@@ -170,7 +153,7 @@ export default function HomePage() {
     }
 
     try {
-      const tx = await atm.takeLoan(loanAmount);
+      const tx = await atm.takeLoan(ethers.utils.parseEther(loanAmount)); // Convert amount to wei
       await tx.wait();
       setLoanStatus("Loan taken successfully");
       getBalance(); // Update balance after taking the loan
@@ -179,6 +162,27 @@ export default function HomePage() {
       console.error(error);
     }
   };
+  // Updated Fixed Deposit Logic
+const handleFixedDeposit = async () => {
+  if (!fixedDepositAmount || !fixedDepositPeriod) {
+    alert("Please enter a valid amount and period for the fixed deposit.");
+    return;
+  }
+
+  try {
+    const tx = await atm.makeFixedDeposit(
+      ethers.utils.parseEther(fixedDepositAmount), // Convert amount to wei
+      fixedDepositPeriod
+    );
+    await tx.wait();
+    setFdStatus("Fixed deposit made successfully");
+    getBalance(); // Update balance after fixed deposit
+  } catch (error) {
+    setFdStatus("Fixed deposit failed");
+    console.error(error);
+  }
+};
+
 
   const initUser = () => {
     if (!ethWallet) {
@@ -193,7 +197,7 @@ export default function HomePage() {
       );
     }
 
-    if (balance == undefined) {
+    if (balance === undefined) {
       getBalance();
     }
 
